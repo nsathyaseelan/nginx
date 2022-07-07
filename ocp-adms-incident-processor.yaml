@@ -1,164 +1,261 @@
----
-apiVersion: "v1"
-kind: "Service"
-metadata:
-  annotations: {}
-  name: "ocp-adms-incident-processor"
-  labels:
-    app.kubernetes.io/name: "ocp-adms-incident-processor"
-    app.kubernetes.io/component: "statefulset.ocp-adms-incident-processor"
-spec:
-  clusterIP: "None"
-  externalIPs: []
-  healthCheckNodePort: 0
-  loadBalancerSourceRanges: []
-  sessionAffinity: "None"
-  type: "ClusterIP"
-  selector:
-    app.kubernetes.io/component: "statefulset.ocp-adms-incident-processor"
-  ports:
-  - name: "http"
-    port: 8080
-    protocol: "TCP"
-    targetPort: 8080
-
----
-kind: "ConfigMap"
-apiVersion: "v1"
+apiVersion: v1
 data:
-  app_java_opts: "-Djava.security.krb5.conf=/var/ocp/krb5.conf -Dsun.security.krb5.debug=false\
-    \ -Docp.kafka.stream.cleanup.on-start=false"
-  ocp_profiles_active: "dev,kafka_dev"
-  ocp_config_service_uri: "http://ocp-config-svc:8080"
-binaryData: {}
+  password: ZGVmYXVsdA==
+kind: Secret
 metadata:
   annotations: {}
-  name: "ocp-adms-incident-processor"
   labels:
-    app.kubernetes.io/name: "ocp-adms-incident-processor"
-
+    nirmata.io/secret.name: db-secret
+  name: db-secret
+type: Opaque
 ---
-apiVersion: "apps/v1"
-kind: "StatefulSet"
+apiVersion: v1
+kind: Service
 metadata:
   annotations: {}
-  name: "ocp-adms-incident-processor"
   labels:
-    app.kubernetes.io/name: "ocp-adms-incident-processor"
-    app.kubernetes.io/component: "statefulset.ocp-adms-incident-processor"
+    nirmata.io/component: frontend
+    nirmata.io/service.name: frontend
+  name: frontend
 spec:
-  podManagementPolicy: "OrderedReady"
-  replicas: 1
-  serviceName: ""
+  externalIPs: []
+  loadBalancerSourceRanges: []
+  ports:
+    - port: 80
+      protocol: TCP
   selector:
-    matchLabels:
-      app.kubernetes.io/component: "statefulset.ocp-adms-incident-processor"
+    nirmata.io/component: frontend
+    nirmata.io/service.name: frontend
+  type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations: {}
+  labels:
+    nirmata.io/component: redis-master
+    nirmata.io/service.name: redis-master
+  name: redis-master
+spec:
+  externalIPs: []
+  loadBalancerSourceRanges: []
+  ports:
+    - port: 6379
+      protocol: TCP
+  selector:
+    nirmata.io/component: redis-master
+    nirmata.io/service.name: redis-master
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations: {}
+  labels:
+    nirmata.io/component: redis-slave
+    nirmata.io/service.name: redis-slave
+  name: redis-slave
+spec:
+  externalIPs: []
+  loadBalancerSourceRanges: []
+  ports:
+    - port: 6379
+      protocol: TCP
+  selector:
+    nirmata.io/component: redis-slave
+    nirmata.io/service.name: redis-slave
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations: {}
+  labels:
+    nirmata.io/component: frontend
+    nirmata.io/deployment.name: frontend
+    nirmata.io/service.name: frontend
+    nirmata.io/test: testLabel
+  name: frontend
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  selector:
     matchExpressions: []
-  revisionHistoryLimit: 10
+    matchLabels:
+      app: guestbook
+      nirmata.io/component: frontend
+      nirmata.io/service.name: frontend
+      tier: frontend
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 2
+    type: RollingUpdate
   template:
     metadata:
       annotations: {}
       labels:
-        app.kubernetes.io/name: "ocp-adms-incident-processor"
-        app.kubernetes.io/component: "statefulset.ocp-adms-incident-processor"
+        app: guestbook
+        nirmata.io/component: frontend
+        nirmata.io/deployment.name: frontend
+        nirmata.io/service.name: frontend
+        tier: frontend
     spec:
-      restartPolicy: "Always"
-      terminationGracePeriodSeconds: 30
-      nodeSelector: {}
-      schedulerName: "default-scheduler"
-      dnsPolicy: "ClusterFirst"
-      containers:
-      - name: "ocp-adms-incident-processor"
-        image: "nexus.duke-energy.com:18079/ocp/ocp-adms-incident-processor:1.0.0-SNAPSHOT-25"
-        command: []
-        args: []
-        terminationMessagePath: "/dev/termination-log"
-        terminationMessagePolicy: "File"
-        imagePullPolicy: "IfNotPresent"
-        ports:
-        - name: "http"
-          containerPort: 8080
-          protocol: "TCP"
-        env:
-        - name: "APP_SERVER_IP"
-          valueFrom:
-            fieldRef:
-              apiVersion: "v1"
-              fieldPath: "status.podIP"
-        - name: "APP_SERVER_NAME"
-          valueFrom:
-            fieldRef:
-              apiVersion: "v1"
-              fieldPath: "metadata.name"
-        volumeMounts:
-        - name: "ocp-adms-incident-processor-volume"
-          readOnly: false
-          mountPath: "/var/ocp/data"
-        livenessProbe:
-          initialDelaySeconds: 300
-          timeoutSeconds: 15
-          periodSeconds: 10
-          successThreshold: 1
-          failureThreshold: 100
-          httpGet:
-            path: "/actuator/info"
-            port: 8080
-            scheme: "HTTP"
-        readinessProbe:
-          initialDelaySeconds: 60
-          timeoutSeconds: 15
-          periodSeconds: 10
-          successThreshold: 1
-          failureThreshold: 100
-          httpGet:
-            path: "/actuator/info"
-            port: 8080
-            scheme: "HTTP"
-        resources:
-          limits:
-            cpu: "2"
-            memory: "4Gi"
-          requests:
-            cpu: "500m"
-            memory: "2Gi"
-        envFrom:
-        - prefix: ""
-          configMapRef:
-            name: "ocp-adms-incident-processor"
-            optional: false
-        - prefix: ""
-          secretRef:
-            name: "ocp-adms-incident-processor-secrets"
-            optional: false
-      securityContext:
-        supplementalGroups: []
       affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              namespaces: []
-              labelSelector:
-                matchLabels: {}
-                matchExpressions: []
-              topologyKey: "failure-domain.beta.kubernetes.io/zone"
-      imagePullSecrets:
-      - name: "nexus.duke-energy.com.18079"
-  updateStrategy:
-    type: "OnDelete"
-  volumeClaimTemplates:
-  - apiVersion: "v1"
-    kind: "PersistentVolumeClaim"
+        podAntiAffinity: {}
+      containers:
+        - args: []
+          command: []
+          env:
+            - name: GET_HOSTS_FROM
+              value: dns
+            - name: test
+              value: ""
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: db-secret
+          image: registry-v2.nirmata.io/nirmata/gb-frontend:v71
+          name: php-redis
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          resources:
+            limits:
+              memory: 400Mi
+            requests:
+              memory: 100Mi
+      nodeSelector: {}
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations: {}
+  labels:
+    nirmata.io/component: redis-master
+    nirmata.io/deployment.name: redis-master
+    nirmata.io/service.name: redis-master
+    nirmata.io/test: testLabel
+  name: redis-master
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchExpressions: []
+    matchLabels:
+      app: redis
+      nirmata.io/component: redis-master
+      nirmata.io/service.name: redis-master
+      role: master
+      tier: backend
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 2
+    type: RollingUpdate
+  template:
     metadata:
       annotations: {}
-      name: "ocp-adms-incident-processor-volume"
+      labels:
+        app: redis
+        nirmata.io/component: redis-master
+        nirmata.io/deployment.name: redis-master
+        nirmata.io/service.name: redis-master
+        role: master
+        tier: backend
     spec:
-      accessModes:
-      - "ReadWriteOnce"
-      storageClassName: "best-effort-m3"
-      volumeMode: "Filesystem"
-      resources:
-        limits:
-          storage: "10Gi"
-        requests:
-          storage: "10Gi"
+      containers:
+        - args: []
+          command: []
+          image: k8s.gcr.io/redis:latest
+          imagePullPolicy: Always
+          name: master
+          ports:
+            - containerPort: 6379
+              name: tcp
+              protocol: TCP
+          resources:
+            limits:
+              memory: 500Mi
+            requests:
+              memory: 500Mi
+      nodeSelector: {}
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations: {}
+  labels:
+    nirmata.io/component: redis-slave
+    nirmata.io/deployment.name: redis-slave
+    nirmata.io/service.name: redis-slave
+    nirmata.io/test: testLabel
+  name: redis-slave
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchExpressions: []
+    matchLabels:
+      app: redis
+      nirmata.io/component: redis-slave
+      nirmata.io/service.name: redis-slave
+      role: slave
+      tier: backend
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations: {}
+      labels:
+        app: redis
+        nirmata.io/component: redis-slave
+        nirmata.io/deployment.name: redis-slave
+        nirmata.io/service.name: redis-slave
+        role: slave
+        tier: backend
+    spec:
+      containers:
+        - args: []
+          command: []
+          env:
+            - name: GET_HOSTS_FROM
+              value: dns
+          image: gcr.io/google_samples/gb-redisslave:v1
+          name: slave
+          ports:
+            - containerPort: 6379
+              protocol: TCP
+          resources:
+            limits:
+              memory: 500Mi
+            requests:
+              memory: 500Mi
+      nodeSelector: {}
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "false"
+  labels:
+    nirmata.io/ingress.name: frontend
+  name: frontend
+spec:
+  backend:
+    serviceName: frontend
+    servicePort: 80
+  rules:
+    - host: gbk.new.nirmata.io
+      http:
+        paths:
+          - backend:
+              serviceName: frontend
+              servicePort: 80
+            path: /
