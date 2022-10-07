@@ -33,12 +33,12 @@ spec:
         ports:
         - containerPort: 80
           name: web
----
-apiVersion: v1
-data:
-  username: admin
-  password: pass
-kind: Secret
-metadata:
-  name: mysecret1
-type: Opaque
+# ---
+# apiVersion: v1
+# data:
+#   username: admin
+#   password: pass
+# kind: Secret
+# metadata:
+#   name: mysecret1
+# type: Opaque
