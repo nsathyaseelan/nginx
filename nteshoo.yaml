@@ -1,0 +1,38 @@
+---
+kind: "Deployment"
+apiVersion: "apps/v1"
+metadata:
+  name: "netshoot"
+  labels:
+    app.kubernetes.io/name: "netshoot"
+    app.kubernetes.io/component: "deployment.netshoot"
+    department: "energy"
+spec:
+  replicas: 0
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: "deployment.netshoot"
+    matchExpressions: []
+  strategy:
+    type: "RollingUpdate"
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      annotations: {}
+      labels:
+        app.kubernetes.io/name: "netshoot"
+        app.kubernetes.io/component: "deployment.netshoot"
+    spec:
+      terminationGracePeriodSeconds: 30
+      nodeSelector: {}
+      containers:
+      - name: "netshoot"
+        image: "nicolaka/netshoot:latest"
+        command:
+        - "sleep"
+        - "3600"
+        args: []
+        imagePullPolicy: "Always"
