@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    environment: prod22
+    nibr-app-name: pph-ui
+  name: pph-ui-deploy-prd-2
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      environment: prod
+      nibr-app-name: pph-ui
+  template:
+    metadata:
+      annotations:
+        imageregistry: "https://hub.docker.com/"
+        kubernetes.io/os: "linux"
+      labels:
+        environment: prod22
+        nibr-app-name: pph-ui
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions: []
+                matchLabels:
+                  environment: prod
+                  nibr-app-name: pph-ui
+              topologyKey: kubernetes.io/hostname
+            weight: 10
+      containers:
+      - name: nginx
+        image: nginx:stable
+        resources:
+          requests:
+            memory: "90Mi"
+            cpu: "99m"
+          limits:
+            memory: "100Mi"
+            cpu: "120m"
+      terminationGracePeriodSeconds: 60
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  annotations:
+    gitopsurl: https://bitbucket.prd.nibr.novartis.net/projects/CAT/repos/pph_ui-zephyr-deploy/browse
+  labels:
+    app.kubernetes.io/name: pph-app
+    environment: prod
+  name: pph-pdb-prd-1
+spec:
+  minAvailable: 1
+  selector:
+    matchExpressions: []
+    matchLabels:
+      environment: prod
+      nibr-app-name: pph-ui
